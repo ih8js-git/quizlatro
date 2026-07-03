@@ -1,46 +1,28 @@
-######################################################################
-# lovely.toml — Study to Earn (Quizlatro)
-#
-# Lovely injector patches for the mod. These modify Balatro's source
-# files at load time before the game engine executes them.
-#
-# Patch 1: Copy-append study_button.lua into game.lua
-#           This injects the floating "Study" UIBox button.
-#           Uses patches.copy — NO pattern matching required,
-#           guaranteed to apply successfully.
-#
-# Patch 2: Zero out discards in round_resets (backup mechanism)
-#           Hooks into game.lua to ensure discards start at 0.
-#           The primary mechanism is in main.lua via
-#           Game:init_game_object override, but this is a safety net.
-######################################################################
-
 [manifest]
 version = "1.0.0"
 dump_lua = true
-priority = 0
+priority = 100
 
-# ── Patch 1: Inject the floating Study button ──────────────────────
-# Appends study_button.lua to the end of game.lua.
-# This is the most reliable injection method — no pattern matching,
-# no chance of silent failure due to whitespace/formatting changes.
+# Register quizlatro.lua as a requirable module
 [[patches]]
-[patches.copy]
-target = "game.lua"
-position = "append"
-sources = ["study_button.lua"]
+[patches.module]
+source = "quizlatro.lua"
+name = "quizlatro.core"
 
-# ── Patch 2: Force discards to 0 (safety net) ─────────────────────
-# Targets a known stable line in Game:init_game_object that sets
-# the default number of discards. Replaces it with 0.
-# This is a backup in case the Lua hook in main.lua doesn't fire
-# early enough.
+# Inject the mod directory path into the module
 [[patches]]
 [patches.pattern]
-target = "game.lua"
-pattern = "round_resets.discards = round_resets.discards"
-position = "after"
+target = '=[lovely quizlatro.core "quizlatro.lua"]'
+pattern = "local MOD_DIR = nil -- patched by lovely"
+position = "at"
+payload = '''local MOD_DIR = [[{{lovely_hack:patch_dir}}]]'''
 match_indent = true
-payload = '''
-round_resets.discards = 0
-'''
+
+# Load the module before Game:start_up so our hook wraps it
+[[patches]]
+[patches.pattern]
+target = "main.lua"
+pattern = "G:start_up()"
+position = "before"
+payload = '''require("quizlatro.core")'''
+match_indent = true
