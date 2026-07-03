@@ -64,7 +64,7 @@ end
 -- QUIZ UI (uses native overlay_menu)
 ----------------------------------------------------------------------
 
-local function build_quiz_ui(question_entry, correct_idx, on_correct)
+local function build_quiz_ui(question_entry, correct_idx, on_correct, on_dismiss)
     local choices = get_choices(correct_idx)
     local correct_answer = question_entry.a
     local scale = 0.45
@@ -100,8 +100,8 @@ local function build_quiz_ui(question_entry, correct_idx, on_correct)
     -- Build answer buttons
     local function make_answer_button(text, index)
         local btn_id = 'quizlatro_answer_' .. index
-        G.FUNCS[btn_id] = function(e)
-            e.config.button = nil
+        G.FUNCS[btn_id] = function(btn_e)
+            btn_e.config.button = nil
             if text == correct_answer then
                 play_sound('generic1', 0.9, 0.6)
                 G.FUNCS.exit_overlay_menu()
@@ -114,6 +114,19 @@ local function build_quiz_ui(question_entry, correct_idx, on_correct)
                 end}))
                 play_sound('tarot2', 1, 0.4)
                 G.FUNCS.exit_overlay_menu()
+                -- Show "Wrong!" floating text
+                attention_text({
+                    text = "Wrong!",
+                    scale = 1.4,
+                    hold = 1,
+                    major = G.play,
+                    backdrop_colour = G.C.RED,
+                    colour = G.C.WHITE,
+                    align = 'cm',
+                    offset = {x = 0, y = -1},
+                })
+                -- Re-enable the discard button
+                if on_dismiss then on_dismiss() end
             end
         end
 
@@ -133,6 +146,7 @@ local function build_quiz_ui(question_entry, correct_idx, on_correct)
     -- Cancel button callback
     G.FUNCS.quizlatro_cancel = function()
         G.FUNCS.exit_overlay_menu()
+        if on_dismiss then on_dismiss() end
     end
 
     -- Assemble UI
@@ -248,6 +262,11 @@ local function install_discard_hook()
             definition = build_quiz_ui(q, q_idx, function()
                 -- Correct answer callback: execute real discard
                 original_discard(e, hook)
+            end, function()
+                -- Dismiss callback: re-enable the discard button (one_press disables it)
+                if e then
+                    e.disable_button = nil
+                end
             end)
         }
     end
