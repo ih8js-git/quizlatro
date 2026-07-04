@@ -5,18 +5,13 @@
 
 return {
     {
-        name = "Hiragana: Vowels",
+        name = "Hiragana to Romaji",
         questions = {
             { q = "あ", a = "a" },
             { q = "い", a = "i" },
             { q = "う", a = "u" },
             { q = "え", a = "e" },
             { q = "お", a = "o" },
-        }
-    },
-    {
-        name = "Hiragana: K / S / T rows",
-        questions = {
             { q = "か", a = "ka" },
             { q = "き", a = "ki" },
             { q = "く", a = "ku" },
@@ -32,11 +27,6 @@ return {
             { q = "つ", a = "tsu" },
             { q = "て", a = "te" },
             { q = "と", a = "to" },
-        }
-    },
-    {
-        name = "Hiragana: N / H / M / Y / R / W rows",
-        questions = {
             { q = "な", a = "na" },
             { q = "に", a = "ni" },
             { q = "ぬ", a = "nu" },
@@ -65,4 +55,55 @@ return {
             { q = "ん", a = "n" },
         }
     },
+    {
+        name = "Romaji to Hiragana",
+        questions = {
+            { q = "a", a = "あ" },
+            { q = "i", a = "い" },
+            { q = "u", a = "う" },
+            { q = "e", a = "え" },
+            { q = "o", a = "お" },
+            { q = "ka", a = "か" },
+            { q = "ki", a = "き" },
+            { q = "ku", a = "く" },
+            { q = "ke", a = "け" },
+            { q = "ko", a = "こ" },
+            { q = "sa", a = "さ" },
+            { q = "shi", a = "し" },
+            { q = "su", a = "す" },
+            { q = "se", a = "せ" },
+            { q = "so", a = "そ" },
+            { q = "ta", a = "た" },
+            { q = "chi", a = "ち" },
+            { q = "tsu", a = "つ" },
+            { q = "te", a = "て" },
+            { q = "to", a = "と" },
+            { q = "na", a = "な" },
+            { q = "ni", a = "に" },
+            { q = "nu", a = "ぬ" },
+            { q = "ne", a = "ね" },
+            { q = "no", a = "の" },
+            { q = "ha", a = "は" },
+            { q = "hi", a = "ひ" },
+            { q = "fu", a = "ふ" },
+            { q = "he", a = "へ" },
+            { q = "ho", a = "ほ" },
+            { q = "ma", a = "ま" },
+            { q = "mi", a = "み" },
+            { q = "mu", a = "む" },
+            { q = "me", a = "め" },
+            { q = "mo", a = "も" },
+            { q = "ya", a = "や" },
+            { q = "yu", a = "ゆ" },
+            { q = "yo", a = "よ" },
+            { q = "ra", a = "ら" },
+            { q = "ri", a = "り" },
+            { q = "ru", a = "る" },
+            { q = "re", a = "れ" },
+            { q = "ro", a = "ろ" },
+            { q = "wa", a = "わ" },
+            { q = "wo", a = "を" },
+            { q = "n", a = "ん" },
+        }
+    }
 }
