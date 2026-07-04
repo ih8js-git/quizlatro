@@ -406,10 +406,29 @@ local function build_quiz_ui(question_entry, correct_idx, on_correct, on_dismiss
 
     -- Mode / progress info line
     local info_text = "Deck: " .. deck_label
+    local score_bar = nil
     if mastery.active then
         local done, total = mastery_count()
+        info_text = "Mastered: " .. done .. "/" .. total
+        -- Build visual score bar for current question
         local q_score = mastery.scores[correct_idx] or 0
-        info_text = "Mastered: " .. done .. "/" .. total .. "  |  This Q: " .. q_score .. "/" .. mastery.target
+        local filled = string.rep("#", q_score)
+        local empty = string.rep("-", mastery.target - q_score)
+        score_bar = "[" .. filled .. empty .. "]  " .. q_score .. "/" .. mastery.target
+    end
+
+    -- Build info rows for the header
+    local info_nodes = {
+        -- Always show deck/mastery info
+        {n = G.UIT.R, config = {align = "cm", padding = 0.03}, nodes = {
+            {n = G.UIT.T, config = {text = info_text, scale = scale * 0.65, colour = mastery.active and G.C.PURPLE or G.C.UI.TEXT_INACTIVE, shadow = false}}
+        }},
+    }
+    -- Show score bar in mastery mode
+    if score_bar then
+        info_nodes[#info_nodes + 1] = {n = G.UIT.R, config = {align = "cm", padding = 0.02}, nodes = {
+            {n = G.UIT.T, config = {text = score_bar, scale = scale * 0.6, colour = G.C.GREEN, shadow = false}}
+        }}
     end
 
     -- Assemble UI
@@ -421,9 +440,9 @@ local function build_quiz_ui(question_entry, correct_idx, on_correct, on_dismiss
         {n = G.UIT.R, config = {align = "cm", padding = 0.05, colour = G.C.DYN_UI.DARK, r = 0.1, emboss = 0.05}, nodes = {
             {n = G.UIT.T, config = {text = "Study to Discard!", scale = scale * 1.3, colour = G.C.GOLD, shadow = true}}
         }},
-        -- Info line (deck name or mastery progress)
-        {n = G.UIT.R, config = {align = "cm", padding = 0.03}, nodes = {
-            {n = G.UIT.T, config = {text = info_text, scale = scale * 0.65, colour = mastery.active and G.C.PURPLE or G.C.UI.TEXT_INACTIVE, shadow = false}}
+        -- Info lines (deck progress + score bar)
+        {n = G.UIT.R, config = {align = "cm", padding = 0.02}, nodes = {
+            {n = G.UIT.C, config = {align = "cm"}, nodes = info_nodes}
         }},
         {n = G.UIT.B, config = {w = 0.1, h = 0.1}},
         -- Question
