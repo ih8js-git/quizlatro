@@ -1,17 +1,68 @@
--- Quizlatro Questions
--- Each entry is { q = "question", a = "answer" }
--- Wrong answer choices are auto-generated from other entries' correct answers.
--- Minimum 4 entries required.
+-- Quizlatro Question Decks
+-- Each deck is { name = "...", questions = { {q, a}, ... } }
+-- Wrong answer choices are drawn only from questions within the same deck.
+-- Each deck must have at least 4 questions.
 
 return {
-    { q = "What is the capital of France?", a = "Paris" },
-    { q = "What planet is closest to the sun?", a = "Mercury" },
-    { q = "What is the chemical symbol for water?", a = "H2O" },
-    { q = "How many continents are there?", a = "7" },
-    { q = "What year did World War II end?", a = "1945" },
-    { q = "What is the largest ocean on Earth?", a = "Pacific Ocean" },
-    { q = "Who painted the Mona Lisa?", a = "Leonardo da Vinci" },
-    { q = "What is the speed of light in km/s?", a = "299,792" },
-    { q = "What gas do plants absorb from the atmosphere?", a = "Carbon Dioxide" },
-    { q = "What is the smallest prime number?", a = "2" },
+    {
+        name = "Hiragana: Vowels",
+        questions = {
+            { q = "あ", a = "a" },
+            { q = "い", a = "i" },
+            { q = "う", a = "u" },
+            { q = "え", a = "e" },
+            { q = "お", a = "o" },
+        }
+    },
+    {
+        name = "Hiragana: K / S / T rows",
+        questions = {
+            { q = "か", a = "ka" },
+            { q = "き", a = "ki" },
+            { q = "く", a = "ku" },
+            { q = "け", a = "ke" },
+            { q = "こ", a = "ko" },
+            { q = "さ", a = "sa" },
+            { q = "し", a = "shi" },
+            { q = "す", a = "su" },
+            { q = "せ", a = "se" },
+            { q = "そ", a = "so" },
+            { q = "た", a = "ta" },
+            { q = "ち", a = "chi" },
+            { q = "つ", a = "tsu" },
+            { q = "て", a = "te" },
+            { q = "と", a = "to" },
+        }
+    },
+    {
+        name = "Hiragana: N / H / M / Y / R / W rows",
+        questions = {
+            { q = "な", a = "na" },
+            { q = "に", a = "ni" },
+            { q = "ぬ", a = "nu" },
+            { q = "ね", a = "ne" },
+            { q = "の", a = "no" },
+            { q = "は", a = "ha" },
+            { q = "ひ", a = "hi" },
+            { q = "ふ", a = "fu" },
+            { q = "へ", a = "he" },
+            { q = "ほ", a = "ho" },
+            { q = "ま", a = "ma" },
+            { q = "み", a = "mi" },
+            { q = "む", a = "mu" },
+            { q = "め", a = "me" },
+            { q = "も", a = "mo" },
+            { q = "や", a = "ya" },
+            { q = "ゆ", a = "yu" },
+            { q = "よ", a = "yo" },
+            { q = "ら", a = "ra" },
+            { q = "り", a = "ri" },
+            { q = "る", a = "ru" },
+            { q = "れ", a = "re" },
+            { q = "ろ", a = "ro" },
+            { q = "わ", a = "wa" },
+            { q = "を", a = "wo" },
+            { q = "ん", a = "n" },
+        }
+    },
 }
