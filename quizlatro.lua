@@ -29,35 +29,29 @@ end
 
 local mastery = {
     active = false,       -- Whether mastery mode is enabled
-    stats = {},           -- [q_idx] = { attempts = 0, correct = 0 }
+    scores = {},          -- [q_idx] = current score (0..target)
     active_indices = {},  -- Non-mastered question indices for current pass
     pos = 0,              -- Position in active_indices
     pass = 0,             -- Current pass number (1-indexed)
-    min_attempts = 5,     -- Minimum attempts before a question can be retired
-    threshold = 0.85,     -- Accuracy threshold for mastery (after min_attempts)
+    target = 5,           -- Score needed to master a question
     completed = false,    -- True when all questions in the deck are mastered
 }
 
 local function mastery_reset()
-    mastery.stats = {}
+    mastery.scores = {}
     mastery.active_indices = {}
     mastery.pos = 0
     mastery.pass = 0
     mastery.completed = false
     if active_deck then
         for i = 1, #active_deck.questions do
-            mastery.stats[i] = { attempts = 0, correct = 0 }
+            mastery.scores[i] = 0
         end
     end
 end
 
 local function is_mastered(q_idx)
-    local s = mastery.stats[q_idx]
-    if not s or s.attempts < mastery.min_attempts then return false end
-    -- Perfect score (5/5 or better) → mastered
-    if s.correct == s.attempts then return true end
-    -- Above threshold → mastered
-    return (s.correct / s.attempts) >= mastery.threshold
+    return (mastery.scores[q_idx] or 0) >= mastery.target
 end
 
 local function mastery_count()
@@ -104,10 +98,12 @@ local function mastery_next_question()
 end
 
 local function mastery_record(q_idx, was_correct)
-    local s = mastery.stats[q_idx]
-    if not s then return end
-    s.attempts = s.attempts + 1
-    if was_correct then s.correct = s.correct + 1 end
+    if not mastery.scores[q_idx] then return end
+    if was_correct then
+        mastery.scores[q_idx] = math.min(mastery.scores[q_idx] + 1, mastery.target)
+    else
+        mastery.scores[q_idx] = math.max(mastery.scores[q_idx] - 1, 0)
+    end
 end
 
 ----------------------------------------------------------------------
@@ -412,12 +408,8 @@ local function build_quiz_ui(question_entry, correct_idx, on_correct, on_dismiss
     local info_text = "Deck: " .. deck_label
     if mastery.active then
         local done, total = mastery_count()
-        local s = mastery.stats[correct_idx]
-        local acc = s and s.attempts > 0 and math.floor((s.correct / s.attempts) * 100) or 0
-        local pass_label = mastery.pass <= mastery.min_attempts
-            and ("Pass " .. mastery.pass .. "/" .. mastery.min_attempts)
-            or ("Pass " .. mastery.pass)
-        info_text = pass_label .. "  |  Mastered: " .. done .. "/" .. total .. "  |  This Q: " .. acc .. "%"
+        local q_score = mastery.scores[correct_idx] or 0
+        info_text = "Mastered: " .. done .. "/" .. total .. "  |  This Q: " .. q_score .. "/" .. mastery.target
     end
 
     -- Assemble UI
