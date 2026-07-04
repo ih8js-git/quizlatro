@@ -23,6 +23,97 @@ local function shuffle(t)
     end
 end
 
+----------------------------------------------------------------------
+-- MASTERY MODE STATE
+----------------------------------------------------------------------
+
+local mastery = {
+    active = false,       -- Whether mastery mode is enabled
+    stats = {},           -- [q_idx] = { attempts = 0, correct = 0 }
+    active_indices = {},  -- Non-mastered question indices for current pass
+    pos = 0,              -- Position in active_indices
+    pass = 0,             -- Current pass number (1-indexed)
+    min_attempts = 5,     -- Minimum attempts before a question can be retired
+    threshold = 0.85,     -- Accuracy threshold for mastery (after min_attempts)
+    completed = false,    -- True when all questions in the deck are mastered
+}
+
+local function mastery_reset()
+    mastery.stats = {}
+    mastery.active_indices = {}
+    mastery.pos = 0
+    mastery.pass = 0
+    mastery.completed = false
+    if active_deck then
+        for i = 1, #active_deck.questions do
+            mastery.stats[i] = { attempts = 0, correct = 0 }
+        end
+    end
+end
+
+local function is_mastered(q_idx)
+    local s = mastery.stats[q_idx]
+    if not s or s.attempts < mastery.min_attempts then return false end
+    -- Perfect score (5/5 or better) → mastered
+    if s.correct == s.attempts then return true end
+    -- Above threshold → mastered
+    return (s.correct / s.attempts) >= mastery.threshold
+end
+
+local function mastery_count()
+    if not active_deck then return 0, 0 end
+    local total = #active_deck.questions
+    local done = 0
+    for i = 1, total do
+        if is_mastered(i) then done = done + 1 end
+    end
+    return done, total
+end
+
+-- Build a new pass of non-mastered questions (shuffled)
+local function mastery_new_pass()
+    mastery.active_indices = {}
+    mastery.pass = mastery.pass + 1
+    if not active_deck then return end
+    for i = 1, #active_deck.questions do
+        if not is_mastered(i) then
+            mastery.active_indices[#mastery.active_indices + 1] = i
+        end
+    end
+    if #mastery.active_indices == 0 then
+        mastery.completed = true
+        return
+    end
+    shuffle(mastery.active_indices)
+    mastery.pos = 0
+    print('[Quizlatro] Mastery pass ' .. mastery.pass .. ' started (' .. #mastery.active_indices .. ' questions remaining)')
+end
+
+local function mastery_next_question()
+    if mastery.completed then return nil, nil end
+
+    mastery.pos = mastery.pos + 1
+    if mastery.pos > #mastery.active_indices then
+        -- End of pass, start a new one (filters out newly mastered questions)
+        mastery_new_pass()
+        if mastery.completed then return nil, nil end
+        mastery.pos = 1
+    end
+    local q_idx = mastery.active_indices[mastery.pos]
+    return active_deck.questions[q_idx], q_idx
+end
+
+local function mastery_record(q_idx, was_correct)
+    local s = mastery.stats[q_idx]
+    if not s then return end
+    s.attempts = s.attempts + 1
+    if was_correct then s.correct = s.correct + 1 end
+end
+
+----------------------------------------------------------------------
+-- RANDOM MODE (original behavior)
+----------------------------------------------------------------------
+
 local function reset_order()
     order = {}
     if not active_deck then return end
@@ -33,14 +124,7 @@ local function reset_order()
     current_index = 0
 end
 
-local function select_deck(idx)
-    active_deck = decks[idx]
-    QUIZLATRO.active_deck_idx = idx
-    reset_order()
-    print('[Quizlatro] Selected deck: ' .. active_deck.name .. ' (' .. #active_deck.questions .. ' questions)')
-end
-
-local function next_question()
+local function next_question_random()
     current_index = current_index + 1
     if current_index > #order then
         reset_order()
@@ -48,6 +132,27 @@ local function next_question()
     end
     local q_idx = order[current_index]
     return active_deck.questions[q_idx], q_idx
+end
+
+----------------------------------------------------------------------
+-- UNIFIED QUESTION INTERFACE
+----------------------------------------------------------------------
+
+local function select_deck(idx)
+    active_deck = decks[idx]
+    QUIZLATRO.active_deck_idx = idx
+    reset_order()
+    mastery_reset()
+    if mastery.active then mastery_new_pass() end
+    print('[Quizlatro] Selected deck: ' .. active_deck.name .. ' (' .. #active_deck.questions .. ' questions)')
+end
+
+local function next_question()
+    if mastery.active then
+        return mastery_next_question()
+    else
+        return next_question_random()
+    end
 end
 
 -- Pick 3 random wrong answers from the SAME deck only
@@ -75,7 +180,10 @@ end
 -- DECK SELECTOR UI
 ----------------------------------------------------------------------
 
-local function build_deck_selector_ui()
+-- Forward declaration for build_deck_selector_ui (used by quiz UI's switch deck button)
+local build_deck_selector_ui
+
+build_deck_selector_ui = function()
     local scale = 0.45
 
     local rows = {}
@@ -84,7 +192,45 @@ local function build_deck_selector_ui()
     rows[#rows + 1] = {n = G.UIT.R, config = {align = "cm", padding = 0.05, colour = G.C.DYN_UI.DARK, r = 0.1, emboss = 0.05}, nodes = {
         {n = G.UIT.T, config = {text = "Choose a Study Deck", scale = scale * 1.3, colour = G.C.GOLD, shadow = true}}
     }}
-    rows[#rows + 1] = {n = G.UIT.B, config = {w = 0.1, h = 0.15}}
+    rows[#rows + 1] = {n = G.UIT.B, config = {w = 0.1, h = 0.1}}
+
+    -- Mode toggle
+    local mode_btn_id = 'quizlatro_mode_toggle'
+    G.FUNCS[mode_btn_id] = function(btn_e)
+        btn_e.config.button = nil
+        mastery.active = not mastery.active
+        play_sound('generic1', 0.9, 0.6)
+        -- Reset mastery state for current deck
+        mastery_reset()
+        if mastery.active then mastery_new_pass() end
+        local mode_name = mastery.active and "Mastery" or "Random"
+        print('[Quizlatro] Mode: ' .. mode_name)
+        G.FUNCS.exit_overlay_menu()
+        attention_text({
+            text = mode_name .. " Mode",
+            scale = 1.0,
+            hold = 1.2,
+            major = G.play,
+            backdrop_colour = mastery.active and G.C.PURPLE or G.C.BLUE,
+            colour = G.C.WHITE,
+            align = 'cm',
+            offset = {x = 0, y = -1},
+        })
+    end
+
+    local mode_label = mastery.active and "Mode: Mastery" or "Mode: Random"
+    local mode_colour = mastery.active and G.C.PURPLE or G.C.BLUE
+
+    rows[#rows + 1] = {n = G.UIT.R, config = {align = "cm", padding = 0.06}, nodes = {
+        {n = G.UIT.C, config = {
+            align = "cm", padding = 0.1, r = 0.1, minw = 3.2, minh = 0.55,
+            hover = true, colour = mode_colour,
+            button = mode_btn_id, shadow = true, one_press = true
+        }, nodes = {
+            {n = G.UIT.T, config = {text = mode_label, scale = scale * 0.8, colour = G.C.WHITE, shadow = true}}
+        }}
+    }}
+    rows[#rows + 1] = {n = G.UIT.B, config = {w = 0.1, h = 0.1}}
 
     -- One button per deck
     for idx, deck in ipairs(decks) do
@@ -107,11 +253,12 @@ local function build_deck_selector_ui()
         end
 
         local label = deck.name .. "  (" .. #deck.questions .. ")"
+        local is_active = (idx == (QUIZLATRO.active_deck_idx or 1))
 
         rows[#rows + 1] = {n = G.UIT.R, config = {align = "cm", padding = 0.06}, nodes = {
             {n = G.UIT.C, config = {
                 align = "cm", padding = 0.12, r = 0.1, minw = 4.0, minh = 0.65,
-                hover = true, colour = (idx == (QUIZLATRO.active_deck_idx or 1)) and G.C.GREEN or G.C.BLUE,
+                hover = true, colour = is_active and G.C.GREEN or G.C.BLUE,
                 button = btn_id, shadow = true, one_press = true
             }, nodes = {
                 {n = G.UIT.T, config = {text = label, scale = scale * 0.9, colour = G.C.WHITE, shadow = true}}
@@ -170,10 +317,38 @@ local function build_quiz_ui(question_entry, correct_idx, on_correct, on_dismiss
         G.FUNCS[btn_id] = function(btn_e)
             btn_e.config.button = nil
             if text == correct_answer then
+                -- Record correct answer in mastery mode
+                if mastery.active then
+                    mastery_record(correct_idx, true)
+                    local just_mastered = is_mastered(correct_idx)
+                    if just_mastered then
+                        local done, total = mastery_count()
+                        -- Show mastered feedback after a tiny delay
+                        G.E_MANAGER:add_event(Event({trigger = 'after', delay = 0.3, blockable = false, blocking = false, func = function()
+                            attention_text({
+                                text = "Mastered! (" .. done .. "/" .. total .. ")",
+                                scale = 0.9,
+                                hold = 1.0,
+                                major = G.play,
+                                backdrop_colour = G.C.GREEN,
+                                colour = G.C.WHITE,
+                                align = 'cm',
+                                offset = {x = 0, y = -2},
+                            })
+                            return true
+                        end}))
+                    end
+                end
+
                 play_sound('generic1', 0.9, 0.6)
                 G.FUNCS.exit_overlay_menu()
                 on_correct()
             else
+                -- Record wrong answer in mastery mode
+                if mastery.active then
+                    mastery_record(correct_idx, false)
+                end
+
                 -- Wrong answer: play error sound, close overlay, no penalty
                 G.E_MANAGER:add_event(Event({trigger = 'after', delay = 0.06, blockable = false, blocking = false, func = function()
                     play_sound('tarot2', 0.76, 0.4)
@@ -233,6 +408,18 @@ local function build_quiz_ui(question_entry, correct_idx, on_correct, on_dismiss
     -- Deck name label
     local deck_label = active_deck and active_deck.name or "?"
 
+    -- Mode / progress info line
+    local info_text = "Deck: " .. deck_label
+    if mastery.active then
+        local done, total = mastery_count()
+        local s = mastery.stats[correct_idx]
+        local acc = s and s.attempts > 0 and math.floor((s.correct / s.attempts) * 100) or 0
+        local pass_label = mastery.pass <= mastery.min_attempts
+            and ("Pass " .. mastery.pass .. "/" .. mastery.min_attempts)
+            or ("Pass " .. mastery.pass)
+        info_text = pass_label .. "  |  Mastered: " .. done .. "/" .. total .. "  |  This Q: " .. acc .. "%"
+    end
+
     -- Assemble UI
     local definition = {n = G.UIT.ROOT, config = {
         align = "cm", colour = G.C.DYN_UI.MAIN, r = 0.1, padding = 0.15, emboss = 0.05,
@@ -242,9 +429,9 @@ local function build_quiz_ui(question_entry, correct_idx, on_correct, on_dismiss
         {n = G.UIT.R, config = {align = "cm", padding = 0.05, colour = G.C.DYN_UI.DARK, r = 0.1, emboss = 0.05}, nodes = {
             {n = G.UIT.T, config = {text = "Study to Discard!", scale = scale * 1.3, colour = G.C.GOLD, shadow = true}}
         }},
-        -- Deck indicator
+        -- Info line (deck name or mastery progress)
         {n = G.UIT.R, config = {align = "cm", padding = 0.03}, nodes = {
-            {n = G.UIT.T, config = {text = "Deck: " .. deck_label, scale = scale * 0.65, colour = G.C.UI.TEXT_INACTIVE, shadow = false}}
+            {n = G.UIT.T, config = {text = info_text, scale = scale * 0.65, colour = mastery.active and G.C.PURPLE or G.C.UI.TEXT_INACTIVE, shadow = false}}
         }},
         {n = G.UIT.B, config = {w = 0.1, h = 0.1}},
         -- Question
@@ -369,8 +556,19 @@ local function install_discard_hook()
             return original_discard(e, hook)
         end
 
+        -- In mastery mode, check if deck is fully mastered
+        if mastery.active and mastery.completed then
+            -- Deck mastered — discards go through freely
+            return original_discard(e, hook)
+        end
+
         -- Get next question
         local q, q_idx = next_question()
+
+        -- Safety: if mastery mode just completed mid-pass, allow discard
+        if not q then
+            return original_discard(e, hook)
+        end
 
         -- Show quiz overlay
         G.SETTINGS.paused = true
@@ -378,6 +576,27 @@ local function install_discard_hook()
             definition = build_quiz_ui(q, q_idx, function()
                 -- Correct answer callback: execute real discard
                 original_discard(e, hook)
+
+                -- Check if deck just became fully mastered
+                if mastery.active then
+                    local done, total = mastery_count()
+                    if done == total then
+                        mastery.completed = true
+                        G.E_MANAGER:add_event(Event({trigger = 'after', delay = 0.5, blockable = false, blocking = false, func = function()
+                            attention_text({
+                                text = "Deck Mastered!",
+                                scale = 1.6,
+                                hold = 2.0,
+                                major = G.play,
+                                backdrop_colour = G.C.GOLD,
+                                colour = G.C.WHITE,
+                                align = 'cm',
+                                offset = {x = 0, y = -1},
+                            })
+                            return true
+                        end}))
+                    end
+                end
             end, function()
                 -- Dismiss callback: re-enable the discard button (one_press disables it)
                 if e then
