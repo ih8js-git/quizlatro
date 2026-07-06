@@ -28,7 +28,7 @@ end
 ----------------------------------------------------------------------
 
 local mastery = {
-    active = false,       -- Whether mastery mode is enabled
+    active = true,       -- Whether mastery mode is enabled
     scores = {},          -- [q_idx] = current score (0..target)
     active_indices = {},  -- Non-mastered question indices for current pass
     pos = 0,              -- Position in active_indices
@@ -625,6 +625,16 @@ function Game:start_up(...)
     if not QUIZLATRO.loaded then
         if load_questions() then
             install_discard_hook()
+            G.FUNCS.quizlatro_settings = function()
+                G.FUNCS.exit_overlay_menu()
+                G.E_MANAGER:add_event(Event({trigger = 'after', delay = 0.15, blockable = false, blocking = false, func = function()
+                    G.SETTINGS.paused = true
+                    G.FUNCS.overlay_menu{
+                        definition = build_deck_selector_ui()
+                    }
+                    return true
+                end}))
+            end
             QUIZLATRO.loaded = true
             print('[Quizlatro] Mod initialized successfully.')
         end

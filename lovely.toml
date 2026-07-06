@@ -26,3 +26,21 @@ pattern = "G:start_up()"
 position = "before"
 payload = '''require("quizlatro.core")'''
 match_indent = true
+
+# Add Quizlatro button definition to the pause menu
+[[patches]]
+[patches.pattern]
+target = "functions/UI_definitions.lua"
+pattern = "local customize = UIBox_button{ label = {localize('b_customize_deck')}, button = \"customize_deck\", minw = 5}"
+position = "after"
+payload = '''local quizlatro_sett = UIBox_button{ label = {"Quizlatro"}, button = "quizlatro_settings", minw = 5}'''
+match_indent = true
+
+# Insert Quizlatro button into the pause menu contents table
+[[patches]]
+[patches.pattern]
+target = "functions/UI_definitions.lua"
+pattern = "customize,"
+position = "after"
+payload = '''quizlatro_sett,'''
+match_indent = true
